@@ -3,6 +3,9 @@
 `briefing()` renders the signals as the text state a decision model like
 Jev reads; `draw_all()` returns the typed Signals for code.
 
+If `python backtest.py <ticker>` has been run, each line of the briefing
+also carries that arrow's track record.
+
 Usage:
     python quiver.py            # GLD briefing
     python quiver.py GC=F --json
@@ -37,11 +40,18 @@ def draw_all(prices, arrows) -> list[Signal]:
     return signals
 
 
-def briefing(ticker, signals: list[Signal]) -> str:
-    """Text state for a decision model: one line per arrow."""
+def briefing(ticker, signals: list[Signal], scorecard: dict | None = None) -> str:
+    """Text state for a decision model: one line per arrow, plus its track
+    record when a scorecard is available."""
+    from backtest import track_record_text
+
     as_of = max(s.as_of for s in signals)
     lines = [f"Asset: {ticker}. Data as of {as_of}. {len(signals)} model signals follow."]
-    lines += [s.to_text() for s in signals]
+    for s in signals:
+        line = s.to_text()
+        if scorecard and s.model in scorecard:
+            line += f" Track record: {track_record_text(scorecard[s.model])}"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -59,7 +69,8 @@ def main():
         for s in signals:
             print(s.model_dump_json(indent=2))
     else:
-        print(briefing(args.ticker, signals))
+        from backtest import load_scorecard
+        print(briefing(args.ticker, signals, load_scorecard(args.ticker)))
 
 
 if __name__ == "__main__":
