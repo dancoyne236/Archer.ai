@@ -1,7 +1,10 @@
+arch
 hmmlearn
 matplotlib
 numpy
 pandas
 plotly
+pydantic
+pytest
 streamlit
 yfinance
