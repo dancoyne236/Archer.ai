@@ -78,17 +78,21 @@ def build_agent(model: Model | str = "typesafe:jev-latest") -> Agent:
     return Agent(model, output_type=Decision, instructions=INSTRUCTIONS)
 
 
-def decide(ticker="GLD", agent: Agent | None = None, prices=None,
-           min_confidence=0.7) -> ArcherCall:
-    """Run every arrow on `ticker` and have the archer make a call."""
-    agent = agent or build_agent()
-    prices = fetch_prices(ticker) if prices is None else prices
-    text = briefing(ticker, draw_all(prices, default_arrows(ticker)), load_scorecard(ticker))
+def judge(agent: Agent, ticker: str, text: str, min_confidence=0.7) -> ArcherCall:
+    """Have the archer make a call on a briefing."""
     result = agent.run_sync(text)
     details = result.response.provider_details or {}
     return ArcherCall(ticker=ticker, decision=result.output,
                       confidence=dict(details.get("confidence", {})),
                       min_confidence=min_confidence, briefing=text)
+
+
+def decide(ticker="GLD", agent: Agent | None = None, prices=None,
+           min_confidence=0.7) -> ArcherCall:
+    """Run every arrow on `ticker` and have the archer make a call."""
+    prices = fetch_prices(ticker) if prices is None else prices
+    text = briefing(ticker, draw_all(prices, default_arrows(ticker)), load_scorecard(ticker))
+    return judge(agent or build_agent(), ticker, text, min_confidence)
 
 
 def main():

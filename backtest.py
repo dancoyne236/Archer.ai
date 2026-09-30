@@ -36,7 +36,8 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 def walk_forward(prices, arrows, warmup=3 * TRADING_DAYS, step=20):
     """Refit each arrow at every `step`-th day after `warmup` and record its signal
-    alongside what happened next."""
+    alongside what happened next. `resolved` is the day the outcome became known;
+    the Signal itself is kept in `signal` so briefings can be rebuilt later."""
     rets = daily_returns(prices).reindex(prices.index)
     rows = []
     for i in range(warmup, len(prices), step):
@@ -55,9 +56,11 @@ def walk_forward(prices, arrows, warmup=3 * TRADING_DAYS, step=20):
                 "strength": sig.strength, "step": step,
                 # Naive benchmark: next month looks like last month.
                 "naive_vol": rets.iloc[i - 19: i + 1].std() * np.sqrt(TRADING_DAYS),
-                "fwd_return": np.nan, "fwd_vol": np.nan,
+                "fwd_return": np.nan, "fwd_vol": np.nan, "resolved": pd.NaT,
+                "signal": sig,
             }
             if i + h < len(prices):
+                row["resolved"] = prices.index[i + h]
                 row["fwd_return"] = (prices.iloc[i + h] / prices.iloc[i] - 1) * 100
                 row["fwd_vol"] = rets.iloc[i + 1: i + h + 1].std() * np.sqrt(TRADING_DAYS)
             rows.append(row)
@@ -133,10 +136,18 @@ def score_vol(df):
     }
 
 
-def scorecard(records):
-    """Summary stats per arrow, keyed by model name."""
+def scorecard(records, known_by=None, min_calls=1):
+    """Summary stats per arrow, keyed by model name.
+
+    With `known_by`, only calls whose outcome was known by that date count, so
+    a track record quoted at that date uses no future information.
+    """
+    if known_by is not None:
+        records = records[records["resolved"] <= known_by]
     card = {}
     for model, df in records.groupby("model"):
+        if df["fwd_return"].notna().sum() < min_calls:
+            continue
         entry = {"horizon": int(df["horizon"].iloc[0]),
                  "since": str(df["date"].min().date())}
         if df["direction"].notna().any():
@@ -196,7 +207,7 @@ def main():
 
     records = walk_forward(prices, arrows, step=args.step)
     RESULTS_DIR.mkdir(exist_ok=True)
-    records.to_csv(RESULTS_DIR / f"{args.ticker.upper()}_signals.csv", index=False)
+    records.drop(columns="signal").to_csv(RESULTS_DIR / f"{args.ticker.upper()}_signals.csv", index=False)
     card = scorecard(records)
     path = save_scorecard(args.ticker, card)
 
