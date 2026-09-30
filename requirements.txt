@@ -5,6 +5,7 @@ numpy
 pandas
 plotly
 pydantic
+pydantic-ai-slim[typesafe]
 pytest
 streamlit
 yfinance
