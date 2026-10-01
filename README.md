@@ -25,7 +25,7 @@ Each arrow returns the same typed `Signal` (see [`arrows/base.py`](arrows/base.p
 ## Run the app
 
 ```bash
-git clone <this repo>
+git clone https://github.com/dancoyne236/Gold_Markov_Model.git
 cd Gold_Markov_Model
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
