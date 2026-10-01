@@ -1,0 +1,30 @@
+# Solarized Light (https://ethanschoonover.com/solarized/)
+# base3 #fdf6e3  base2 #eee8d5  base1 #93a1a1  base00 #657b83  base01 #586e75
+# Body text uses base01 rather than base00 for better contrast on base3.
+
+[theme]
+base = "light"
+primaryColor = "#268bd2"
+backgroundColor = "#fdf6e3"
+secondaryBackgroundColor = "#eee8d5"
+textColor = "#586e75"
+linkColor = "#268bd2"
+borderColor = "#e4ddc8"
+dataframeBorderColor = "#e4ddc8"
+dataframeHeaderBackgroundColor = "#eee8d5"
+codeBackgroundColor = "#eee8d5"
+codeTextColor = "#586e75"
+
+redColor = "#dc322f"
+orangeColor = "#cb4b16"
+yellowColor = "#b58900"
+blueColor = "#268bd2"
+greenColor = "#859900"
+violetColor = "#6c71c4"
+grayColor = "#93a1a1"
+
+chartCategoricalColors = ["#268bd2", "#859900", "#cb4b16", "#6c71c4", "#2aa198", "#d33682", "#b58900", "#dc322f"]
+
+[theme.sidebar]
+backgroundColor = "#eee8d5"
+secondaryBackgroundColor = "#fdf6e3"

@@ -25,8 +25,10 @@ from regime import fetch_prices, fit_regimes
 st.set_page_config(page_title="Market Quiver", layout="wide")
 
 TICKER_RE = re.compile(r"^[A-Z0-9.^=\-]{1,15}$")
-REGIME_COLORS = {"Calm": "#2e7d32", "Normal": "#f9a825",
-                 "Elevated": "#ef6c00", "Turbulent": "#c62828"}
+# Solarized accents, matching .streamlit/config.toml
+REGIME_COLORS = {"Calm": "#859900", "Normal": "#b58900",
+                 "Elevated": "#cb4b16", "Turbulent": "#dc322f"}
+PRICE_LINE = "#93a1a1"
 STANCE_ICON = {"bullish": "🟢", "neutral": "⚪", "bearish": "🔴"}
 VOL_ICON = {"low": "🟢", "normal": "🟡", "high": "🔴"}
 ARROW_TITLES = {
@@ -205,7 +207,7 @@ with regime_tab:
     df = rm.df
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df.index, y=df["Price"], mode="lines",
-                             line=dict(color="lightgray", width=1), name="Price", hoverinfo="skip"))
+                             line=dict(color=PRICE_LINE, width=1), name="Price", hoverinfo="skip"))
     for name in rm.names:
         sub = df[df["Label"] == name]
         fig.add_trace(go.Scatter(x=sub.index, y=sub["Price"], mode="markers",
