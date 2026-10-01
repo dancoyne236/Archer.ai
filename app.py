@@ -1,4 +1,4 @@
-"""Market Quiver: a Streamlit dashboard for the arrows and the archer.
+"""Archer.ai: a Streamlit dashboard for the arrows and the archer.
 
 Run with:  streamlit run app.py
 
@@ -22,7 +22,7 @@ from decision_backtest import compare, run_decisions, simulate, strategy_weights
 from quiver import briefing, default_arrows, draw_all
 from regime import fetch_prices, fit_regimes
 
-st.set_page_config(page_title="Market Quiver", layout="wide")
+st.set_page_config(page_title="Archer.ai", layout="wide")
 
 TICKER_RE = re.compile(r"^[A-Z0-9.^=\-]{1,15}$")
 # Solarized accents, matching .streamlit/config.toml
@@ -105,7 +105,7 @@ via = PROVIDERS[provider]
 
 # ---- Ticker ----
 
-st.title("Market Quiver")
+st.title("Archer.ai")
 st.caption("Five quantitative models read one asset; an optional decision model weighs them. "
            "Educational, not financial advice.")
 

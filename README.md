@@ -1,8 +1,8 @@
-# Market Quiver
+# Archer.ai
 
-[![tests](https://github.com/dancoyne236/Gold_Markov_Model/actions/workflows/tests.yml/badge.svg)](https://github.com/dancoyne236/Gold_Markov_Model/actions/workflows/tests.yml)
+[![tests](https://github.com/dancoyne236/Archer.ai/actions/workflows/tests.yml/badge.svg)](https://github.com/dancoyne236/Archer.ai/actions/workflows/tests.yml)
 
-Five quantitative models ("arrows") read one asset, and an optional decision model ("the archer", [TypeSafe's Jev](https://typesafe.ai)) weighs them into a typed call: **increase, hold or reduce**, with a confidence. Every model is scored walk-forward against a simple baseline, so you can see which ones have actually earned trust.
+A quiver of five quantitative models (the "arrows") reads one asset, and the archer, [TypeSafe's Jev](https://typesafe.ai) decision model, weighs them into a typed call: **increase, hold or reduce**, with a confidence. Every model is scored walk-forward against a simple baseline, so you can see which ones have actually earned trust.
 
 Built around gold, but it works with any Yahoo Finance ticker.
 
@@ -27,8 +27,8 @@ Each arrow returns the same typed `Signal` (see [`arrows/base.py`](arrows/base.p
 ## Run the app
 
 ```bash
-git clone https://github.com/dancoyne236/Gold_Markov_Model.git
-cd Gold_Markov_Model
+git clone https://github.com/dancoyne236/Archer.ai.git
+cd Archer.ai
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
