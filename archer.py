@@ -7,7 +7,7 @@ being acted on.
 
 Setup:
     pip install "pydantic-ai-slim[typesafe]"
-    export TYPESAFE_API_KEY=...
+    export TYPESAFE_API_KEY=...      # or OPENROUTER_API_KEY=..., which routes Jev via OpenRouter
     python backtest.py GLD      # optional but recommended: adds track records
 
 Usage:
@@ -23,6 +23,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
+from pydantic_ai.models.typesafe import TypeSafeModel
+from pydantic_ai.providers.typesafe import TypeSafeProvider
 
 from backtest import load_scorecard
 from quiver import briefing, default_arrows, draw_all
@@ -74,8 +76,40 @@ class ArcherCall:
                 f"({c.get('signals_conflict', 0):.0%})")
 
 
-def build_agent(model: Model | str = "typesafe:jev-latest") -> Agent:
-    return Agent(model, output_type=Decision, instructions=INSTRUCTIONS)
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+MISSING_KEY = "set TYPESAFE_API_KEY or OPENROUTER_API_KEY first"
+
+
+def has_jev_key() -> bool:
+    return bool(os.environ.get("TYPESAFE_API_KEY") or os.environ.get("OPENROUTER_API_KEY"))
+
+
+def jev_model(name="jev-latest", api_key=None, via=None) -> TypeSafeModel:
+    """Jev, reached via "typesafe" or "openrouter".
+
+    With `api_key`, only that key is used: the web app passes each visitor's
+    own key this way and never reads the environment. Without it (the CLI),
+    TYPESAFE_API_KEY is preferred, then OPENROUTER_API_KEY.
+    """
+    if api_key is None:
+        if os.environ.get("TYPESAFE_API_KEY"):
+            api_key, via = os.environ["TYPESAFE_API_KEY"], "typesafe"
+        else:
+            api_key, via = os.environ.get("OPENROUTER_API_KEY"), "openrouter"
+    if not api_key:
+        raise ValueError(MISSING_KEY)
+    if via == "openrouter":
+        provider = TypeSafeProvider(api_key=api_key, base_url=OPENROUTER_BASE_URL)
+    elif via == "typesafe":
+        provider = TypeSafeProvider(api_key=api_key)
+    else:
+        raise ValueError(f"via must be 'typesafe' or 'openrouter', not {via!r}")
+    return TypeSafeModel(name, provider=provider)
+
+
+def build_agent(model: Model | str | None = None) -> Agent:
+    """An agent on `model`, or on Jev when none is given."""
+    return Agent(model or jev_model(), output_type=Decision, instructions=INSTRUCTIONS)
 
 
 def judge(agent: Agent, ticker: str, text: str, min_confidence=0.7) -> ArcherCall:
@@ -99,15 +133,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("ticker", nargs="?", default="GLD")
-    parser.add_argument("--model", default="typesafe:jev-latest")
+    parser.add_argument("--model", default="jev-latest", help="Jev version, e.g. jev-1.13")
     parser.add_argument("--min-confidence", type=float, default=0.7)
     parser.add_argument("--show-briefing", action="store_true")
     args = parser.parse_args()
 
-    if args.model.startswith("typesafe:") and not os.environ.get("TYPESAFE_API_KEY"):
-        parser.error("set TYPESAFE_API_KEY first (see https://docs.typesafe.ai)")
+    if not has_jev_key():
+        parser.error(MISSING_KEY)
 
-    call = decide(args.ticker, build_agent(args.model), min_confidence=args.min_confidence)
+    call = decide(args.ticker, build_agent(jev_model(args.model)), min_confidence=args.min_confidence)
     if args.show_briefing:
         print(call.briefing, "\n")
     print(call)

@@ -34,13 +34,15 @@ log = logging.getLogger(__name__)
 RESULTS_DIR = Path(__file__).parent / "results"
 
 
-def walk_forward(prices, arrows, warmup=3 * TRADING_DAYS, step=20):
+def walk_forward(prices, arrows, warmup=3 * TRADING_DAYS, step=20, on_progress=None):
     """Refit each arrow at every `step`-th day after `warmup` and record its signal
     alongside what happened next. `resolved` is the day the outcome became known;
-    the Signal itself is kept in `signal` so briefings can be rebuilt later."""
+    the Signal itself is kept in `signal` so briefings can be rebuilt later.
+    `on_progress`, if given, is called with the fraction done after each date."""
     rets = daily_returns(prices).reindex(prices.index)
     rows = []
-    for i in range(warmup, len(prices), step):
+    dates = range(warmup, len(prices), step)
+    for n, i in enumerate(dates, 1):
         history = prices.iloc[: i + 1]
         for arrow in arrows:
             try:
@@ -65,6 +67,8 @@ def walk_forward(prices, arrows, warmup=3 * TRADING_DAYS, step=20):
                 row["fwd_vol"] = rets.iloc[i + 1: i + h + 1].std() * np.sqrt(TRADING_DAYS)
             rows.append(row)
         log.info("Scored %s", prices.index[i].date())
+        if on_progress:
+            on_progress(n / len(dates))
     return pd.DataFrame(rows)
 
 

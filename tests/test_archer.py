@@ -78,3 +78,14 @@ def test_jev_gets_the_briefing_and_typed_questions(prices):
     # The briefing text reaches the model as the state it judges.
     assert "[trend]" in str(jev.requests[0].state)
     assert call.briefing.startswith("Asset: TEST")
+
+
+def test_openrouter_key_routes_jev_through_openrouter(monkeypatch):
+    from archer import OPENROUTER_BASE_URL, jev_model
+
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    assert jev_model().base_url == OPENROUTER_BASE_URL
+
+    monkeypatch.setenv("TYPESAFE_API_KEY", "ts-test")
+    assert jev_model().base_url != OPENROUTER_BASE_URL

@@ -14,19 +14,18 @@ it understates every strategy that holds cash, the archer's included.
 
 Usage:
     python decision_backtest.py --baselines-only     # no API key needed
-    python decision_backtest.py GLD                  # needs TYPESAFE_API_KEY
+    python decision_backtest.py GLD                  # needs TYPESAFE_API_KEY or OPENROUTER_API_KEY
 """
 
 import backtest  # noqa: F401  (sets single-threaded BLAS before numpy loads)
 
 import argparse
 import logging
-import os
 
 import numpy as np
 import pandas as pd
 
-from archer import build_agent, judge
+from archer import MISSING_KEY, build_agent, has_jev_key, jev_model, judge
 from arrows.real_yield import RealYield, fetch_real_yield
 from arrows.base import TRADING_DAYS
 from backtest import RESULTS_DIR, scorecard, walk_forward
@@ -101,8 +100,8 @@ def summarize(daily, weights):
     }
 
 
-def compare(prices, records, decisions=None):
-    """Summary table: baselines, plus the archer when decisions are given."""
+def strategy_weights(records, decisions=None):
+    """Position weights per strategy: baselines, plus the archer when decisions are given."""
     dates = records["date"].drop_duplicates().sort_values()
     strategies = {
         "Buy and hold": pd.Series(START_WEIGHT, index=dates),
@@ -110,9 +109,13 @@ def compare(prices, records, decisions=None):
     }
     if decisions is not None:
         strategies["Archer (Jev)"] = weights_from_actions(decisions)
-    table = pd.DataFrame({name: summarize(simulate(prices, w), w)
-                          for name, w in strategies.items()}).T
-    return table
+    return strategies
+
+
+def compare(prices, records, decisions=None):
+    """Summary table, one row per strategy."""
+    return pd.DataFrame({name: summarize(simulate(prices, w), w)
+                         for name, w in strategy_weights(records, decisions).items()}).T
 
 
 def main():
@@ -121,7 +124,7 @@ def main():
     parser.add_argument("ticker", nargs="?", default="GLD")
     parser.add_argument("--start", default="2010-01-01")
     parser.add_argument("--step", type=int, default=20)
-    parser.add_argument("--model", default="typesafe:jev-latest")
+    parser.add_argument("--model", default="jev-latest", help="Jev version, e.g. jev-1.13")
     parser.add_argument("--min-confidence", type=float, default=0.7)
     parser.add_argument("--baselines-only", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -129,8 +132,8 @@ def main():
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
 
     use_archer = not args.baselines_only
-    if use_archer and args.model.startswith("typesafe:") and not os.environ.get("TYPESAFE_API_KEY"):
-        parser.error("set TYPESAFE_API_KEY first, or pass --baselines-only")
+    if use_archer and not has_jev_key():
+        parser.error(f"{MISSING_KEY}, or pass --baselines-only")
 
     prices = fetch_prices(args.ticker, args.start)
     arrows = [RealYield(real_yield=fetch_real_yield()) if isinstance(a, RealYield) else a
@@ -139,7 +142,7 @@ def main():
 
     decisions = None
     if use_archer:
-        decisions = run_decisions(args.ticker, records, build_agent(args.model), args.min_confidence)
+        decisions = run_decisions(args.ticker, records, build_agent(jev_model(args.model)), args.min_confidence)
         RESULTS_DIR.mkdir(exist_ok=True)
         decisions.to_csv(RESULTS_DIR / f"{args.ticker.upper()}_decisions.csv")
         print("Actions:", decisions["action"].value_counts().to_dict(),
