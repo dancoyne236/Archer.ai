@@ -1,5 +1,7 @@
 # Market Quiver
 
+[![tests](https://github.com/dancoyne236/Gold_Markov_Model/actions/workflows/tests.yml/badge.svg)](https://github.com/dancoyne236/Gold_Markov_Model/actions/workflows/tests.yml)
+
 Five quantitative models ("arrows") read one asset, and an optional decision model ("the archer", [TypeSafe's Jev](https://typesafe.ai)) weighs them into a typed call: **increase, hold or reduce**, with a confidence. Every model is scored walk-forward against a simple baseline, so you can see which ones have actually earned trust.
 
 Built around gold, but it works with any Yahoo Finance ticker.
@@ -74,6 +76,7 @@ That is the bar for Jev: if it can't beat volatility targeting, it isn't adding 
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 pytest
 ```
 
