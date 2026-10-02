@@ -22,10 +22,13 @@ log = logging.getLogger(__name__)
 GOLD_TICKERS = {"GLD", "IAU", "GC=F", "GLDM", "SGOL"}
 
 
-def default_arrows(ticker):
-    arrows = [HMMRegime(), Garch(), Trend(), MeanReversion()]
+def default_arrows(ticker, horizon=None):
+    """The standard quiver. `horizon` (trading days) overrides every arrow's
+    own default horizon when given."""
+    h = {} if horizon is None else {"horizon_days": horizon}
+    arrows = [HMMRegime(**h), Garch(**h), Trend(**h), MeanReversion(**h)]
     if ticker.upper() in GOLD_TICKERS:
-        arrows.append(RealYield())  # the real-yield link is specific to gold
+        arrows.append(RealYield(**h))  # the real-yield link is specific to gold
     return arrows
 
 

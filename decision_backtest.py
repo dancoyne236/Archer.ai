@@ -123,7 +123,9 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("ticker", nargs="?", default="GLD")
     parser.add_argument("--start", default="2010-01-01")
-    parser.add_argument("--step", type=int, default=20)
+    parser.add_argument("--step", type=int, default=20, help="trading days between decisions")
+    parser.add_argument("--horizon", type=int, default=None,
+                        help="trading days ahead each call is judged (default: each arrow's own)")
     parser.add_argument("--model", default="jev-latest", help="Jev version, e.g. jev-1.13")
     parser.add_argument("--min-confidence", type=float, default=0.7)
     parser.add_argument("--baselines-only", action="store_true")
@@ -137,7 +139,7 @@ def main():
 
     prices = fetch_prices(args.ticker, args.start)
     arrows = [RealYield(real_yield=fetch_real_yield()) if isinstance(a, RealYield) else a
-              for a in default_arrows(args.ticker)]
+              for a in default_arrows(args.ticker, args.horizon)]
     records = walk_forward(prices, arrows, step=args.step)
 
     decisions = None

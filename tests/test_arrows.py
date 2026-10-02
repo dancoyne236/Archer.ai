@@ -91,3 +91,14 @@ def test_draw_all_survives_a_broken_arrow():
     signals = draw_all(make_prices(), [Broken(), Trend()])
     assert [s.model for s in signals] == ["trend"]
     assert briefing("TEST", signals).count("\n") == 1
+
+
+def test_horizon_override_reaches_every_arrow():
+    from quiver import default_arrows
+
+    defaults = {a.name: a.horizon_days for a in default_arrows("GLD")}
+    assert defaults == {"hmm_regime": 20, "garch": 20, "trend": 20,
+                        "mean_reversion": 5, "real_yield": 60}
+    assert {a.horizon_days for a in default_arrows("GLD", 120)} == {120}
+    sig = Garch(horizon_days=60).fit(make_prices()).signal()
+    assert sig.horizon_days == 60

@@ -199,12 +199,14 @@ def main():
     parser.add_argument("ticker", nargs="?", default="GLD")
     parser.add_argument("--start", default="2010-01-01")
     parser.add_argument("--step", type=int, default=20, help="trading days between scoring dates")
+    parser.add_argument("--horizon", type=int, default=None,
+                        help="trading days ahead each call is judged (default: each arrow's own)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
 
     prices = fetch_prices(args.ticker, args.start)
-    arrows = default_arrows(args.ticker)
+    arrows = default_arrows(args.ticker, args.horizon)
     # Fetch real yields once instead of on every refit.
     arrows = [RealYield(real_yield=fetch_real_yield()) if isinstance(a, RealYield) else a
               for a in arrows]

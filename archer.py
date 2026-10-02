@@ -42,13 +42,13 @@ an edge. Volatility views are about risk, not about direction."""
 
 
 class Decision(BaseModel):
-    """A position decision for the asset in the briefing, for the next month."""
+    """A position decision for the asset in the briefing, until the next decision."""
 
     action: Action = Field(description=(
         "Taking each model's track record into account, should the investor increase, hold, "
-        "or reduce their position over the next month?"))
+        "or reduce their position until the next decision?"))
     risk: Literal["low", "normal", "high"] = Field(description=(
-        "How risky is holding this asset over the next month, judging from the volatility views?"))
+        "How risky is holding this asset until the next decision, judging from the volatility views?"))
     signals_conflict: bool = Field(description=(
         "Do the directional views in the briefing point in different directions?"))
 

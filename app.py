@@ -8,6 +8,8 @@ key from the environment or from Streamlit secrets, and never passes one to a
 cached function, because both are shared by every visitor of a hosted app.
 """
 
+import backtest  # noqa: F401  (sets single-threaded BLAS before numpy loads)
+
 import re
 from datetime import date
 
@@ -39,6 +41,26 @@ ARROW_TITLES = {
     "real_yield": "Real yields (gold only)",
 }
 PROVIDERS = {"OpenRouter": "openrouter", "TypeSafe": "typesafe"}
+
+HORIZON_OPTIONS = [None, 5, 10, 20, 60, 120, 250]
+HORIZON_LABELS = {None: "5–60 days by model", 5: "about a week", 10: "about two weeks",
+                  20: "about a month", 60: "about a quarter", 120: "about six months",
+                  250: "about a year"}
+STEP_OPTIONS = [5, 10, 20, 60]
+STEP_LABELS = {5: "weekly", 10: "every two weeks", 20: "monthly", 60: "quarterly"}
+HORIZON_HELP = (
+    "**Horizon** is how far ahead each model's call is judged. A 20-day horizon asks: "
+    "was the call right about the next month? By default each model uses its own "
+    "(mean reversion 5 days, trend and volatility 20, real yields 60). Volatility "
+    "forecasts change with the horizon; trend and mean-reversion signals are computed "
+    "the same way and are simply judged over a different period."
+)
+STEP_HELP = (
+    "**Step size** is how often the backtest stops to refit the models and make a call, "
+    "and how often Jev revisits its decision. Smaller steps give more calls to judge "
+    "but take longer to run. When the horizon is longer than the step, neighbouring "
+    "calls overlap, and the statistics count them for less."
+)
 KEY_LINKS = {"OpenRouter": "https://openrouter.ai/keys", "TypeSafe": "https://docs.typesafe.ai"}
 
 
@@ -54,15 +76,16 @@ def load_real_yield():
     return fetch_real_yield()
 
 
-def arrows_for(ticker):
+def arrows_for(ticker, horizon):
     """Default arrows, with real yields fetched once and shared."""
-    return [RealYield(real_yield=load_real_yield()) if isinstance(a, RealYield) else a
-            for a in default_arrows(ticker)]
+    return [RealYield(real_yield=load_real_yield(), horizon_days=a.horizon_days)
+            if isinstance(a, RealYield) else a
+            for a in default_arrows(ticker, horizon)]
 
 
 @st.cache_data(ttl=3600, show_spinner="Running the models…")
-def load_signals(ticker, start):
-    return draw_all(load_prices(ticker, start), arrows_for(ticker))
+def load_signals(ticker, start, horizon):
+    return draw_all(load_prices(ticker, start), arrows_for(ticker, horizon))
 
 
 @st.cache_resource(show_spinner="Fitting regime model…")
@@ -71,10 +94,10 @@ def load_regimes(ticker, start, n_states):
 
 
 @st.cache_data(show_spinner=False, max_entries=20)
-def load_records(ticker, start, day, _progress=None):
+def load_records(ticker, start, day, horizon, step, _progress=None):
     """Walk-forward records. `day` keys the cache so it refreshes daily."""
     prices = load_prices(ticker, start)
-    return walk_forward(prices, arrows_for(ticker), on_progress=_progress)
+    return walk_forward(prices, arrows_for(ticker, horizon), step=step, on_progress=_progress)
 
 
 def redact(message, secret):
@@ -93,6 +116,20 @@ with st.sidebar:
         f"requests in this session, and isn't stored, logged or shared. This app has no "
         f"key of its own. [Get a key]({KEY_LINKS[provider]})"
     )
+    st.header("Backtest settings")
+    with st.popover("What do these mean?", icon=":material/help:", width="stretch"):
+        st.markdown(HORIZON_HELP)
+        st.markdown(STEP_HELP)
+    horizon_choice = st.select_slider(
+        "Horizon (trading days ahead)", options=HORIZON_OPTIONS, value=None,
+        format_func=lambda h: "Each model's default" if h is None else f"{h} days",
+        help=HORIZON_HELP)
+    step = st.select_slider(
+        "Step size (trading days between checks)", options=STEP_OPTIONS, value=20,
+        format_func=lambda d: f"{d} days", help=STEP_HELP)
+    st.caption(f"Horizon: {HORIZON_LABELS.get(horizon_choice, '')} · "
+               f"step: {STEP_LABELS.get(step, '')}")
+
     with st.expander("Advanced"):
         start_year = st.slider("History from", 2005, 2022, 2010)
         n_states = st.radio("Regimes in the HMM view", [2, 3, 4], index=1, horizontal=True)
@@ -120,7 +157,7 @@ if not TICKER_RE.match(ticker):
 
 try:
     prices = load_prices(ticker, start)
-    signals = load_signals(ticker, start)
+    signals = load_signals(ticker, start, horizon_choice)
 except Exception as e:
     st.error(f"Couldn't load {ticker}: {e}")
     st.stop()
@@ -128,7 +165,7 @@ if not signals:
     st.error(f"None of the models could run on {ticker}. It may have too little history.")
     st.stop()
 
-records_key = ("records", ticker, start, date.today())
+records_key = ("records", ticker, start, date.today(), horizon_choice, step)
 records = st.session_state.get(records_key)
 card = scorecard(records, min_calls=20) if records is not None else None
 
@@ -142,7 +179,7 @@ with today_tab:
     st.caption(f"Data through {as_of}")
 
     text = briefing(ticker, signals, card)
-    jev_key = ("jev", ticker, start, str(as_of), jev_version, card is not None)
+    jev_key = ("jev", ticker, start, str(as_of), jev_version, horizon_choice, card is not None)
 
     with st.container(border=True):
         st.markdown("#### Jev's call")
@@ -234,15 +271,17 @@ with regime_tab:
 
 with record_tab:
     st.markdown(
-        "Every 20 trading days since the history starts (after a 3-year warm-up), each model is "
+        f"Every {step} trading days since the history starts (after a 3-year warm-up), each model is "
         "refit on prices up to that day only, and its call is checked against what happened next. "
         "A model is only called better or worse than its simple baseline when the difference is "
         "statistically clear."
     )
     if records is None:
-        if st.button("Run the backtest (about 2 minutes)", type="primary"):
+        n_dates = max((len(prices) - 3 * 252) // step, 0)
+        minutes = max(round(n_dates * len(signals) * 0.12 / 60), 1)
+        if st.button(f"Run the backtest ({n_dates} checks, about {minutes} min)", type="primary"):
             bar = st.progress(0.0, text="Replaying history…")
-            records = load_records(ticker, start, date.today(),
+            records = load_records(ticker, start, date.today(), horizon_choice, step,
                                    _progress=lambda f: bar.progress(f, text="Replaying history…"))
             bar.empty()
             st.session_state[records_key] = records
@@ -266,9 +305,11 @@ with record_tab:
     st.dataframe(pd.DataFrame(rows).set_index("Model"), width="stretch")
 
     st.markdown("#### Position-sizing strategies")
-    st.caption("Starting at 75% in the asset, rest in cash earning 0%. Jev's strategy moves "
-               "25 points per increase or reduce call.")
-    decisions_key = ("decisions", ticker, start, date.today(), jev_version, min_conf)
+    st.caption(f"Starting at 75% in the asset, rest in cash earning 0%. Positions are reviewed "
+               f"every {step} trading days; Jev's strategy moves 25 points per increase or "
+               f"reduce call.")
+    decisions_key = ("decisions", ticker, start, date.today(), horizon_choice, step,
+                     jev_version, min_conf)
     decisions = st.session_state.get(decisions_key)
 
     if api_key and decisions is None:
